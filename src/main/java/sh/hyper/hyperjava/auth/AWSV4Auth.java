@@ -5,6 +5,10 @@
  */
 package sh.hyper.hyperjava.auth;
 
+import org.apache.commons.codec.binary.Hex;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.MessageDigest;
@@ -16,8 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Example: Signing AWS Requests with Signature Version 4 in Java.
@@ -26,8 +28,23 @@ import javax.crypto.spec.SecretKeySpec;
  * @author javaQuery
  * @date 19th January, 2016
  * @Github: https://github.com/javaquery/Examples
+ *
+ * @modifier: xjimmyshcn
+ * @modifyDate: 16th July, 2016
+ * @Github: https://github.com/Jimmy-Xu/hypercli-java
  */
 public class AWSV4Auth {
+
+    private static final String HMAC_ALGORITHM              = "HYPER-HMAC-SHA256";
+    private static final String AWS4_REQUEST                = "hyper_request";
+    private static final String KEYPARTS_PREFIX             = "HYPER";
+
+    private static final String HEAD_AUTHORIZATION          = "Authorization";
+    /*SignedHeaders: content-type,host,x-hyper-content-sha256,x-hyper-date*/
+    private static final String HEAD_CONTENTTYPE            = "Content-Type";
+    private static final String HEAD_HOST                   = "Host";
+    private static final String HEAD_X_HYPER_CONTENT_SHA256 = "X-Hyper-Content-Sha256";
+    private static final String HEAD_X_HYPER_DATE           = "X-Hyper-Date";
 
     private AWSV4Auth() {
     }
@@ -40,6 +57,12 @@ public class AWSV4Auth {
         private String serviceName;
         private String httpMethodName;
         private String canonicalURI;
+
+        private String host;
+
+        private static final String DEFAULT_SERVICE = "hyper";
+        private static final String DEFAULT_REGION = "us-west-1";
+
         private TreeMap<String, String> queryParametes;
         private TreeMap<String, String> awsHeaders;
         private String payload;
@@ -48,6 +71,8 @@ public class AWSV4Auth {
         public Builder(String accessKeyID, String secretAccessKey) {
             this.accessKeyID = accessKeyID;
             this.secretAccessKey = secretAccessKey;
+            this.regionName = this.DEFAULT_REGION;
+            this.serviceName = this.DEFAULT_SERVICE;
         }
 
         public Builder regionName(String regionName) {
@@ -67,6 +92,11 @@ public class AWSV4Auth {
 
         public Builder canonicalURI(String canonicalURI) {
             this.canonicalURI = canonicalURI;
+            return this;
+        }
+
+        public Builder host(String host) {
+            this.host = host;
             return this;
         }
 
@@ -101,14 +131,12 @@ public class AWSV4Auth {
     private String serviceName;
     private String httpMethodName;
     private String canonicalURI;
+    private String host;
     private TreeMap<String, String> queryParametes;
     private TreeMap<String, String> awsHeaders;
     private String payload;
     private boolean debug = false;
 
-    /* Other variables */
-    private final String HMACAlgorithm = "AWS4-HMAC-SHA256";
-    private final String aws4Request = "aws4_request";
     private String strSignedHeader;
     private String xAmzDate;
     private String currentDate;
@@ -120,6 +148,7 @@ public class AWSV4Auth {
         serviceName = builder.serviceName;
         httpMethodName = builder.httpMethodName;
         canonicalURI = builder.canonicalURI;
+        host = builder.host;
         queryParametes = builder.queryParametes;
         awsHeaders = builder.awsHeaders;
         payload = builder.payload;
@@ -128,6 +157,12 @@ public class AWSV4Auth {
         /* Get current timestamp value.(UTC) */
         xAmzDate = getTimeStamp();
         currentDate = getDate();
+
+        //for debug
+        if (debug) {
+            xAmzDate = "20160712T033826Z";
+            currentDate = xAmzDate.substring(0, 8);
+        }
     }
 
     /**
@@ -200,15 +235,16 @@ public class AWSV4Auth {
         String stringToSign = "";
 
         /* Step 2.1 Start with the algorithm designation, followed by a newline character. */
-        stringToSign = HMACAlgorithm + "\n";
+        stringToSign = HMAC_ALGORITHM + "\n";
 
         /* Step 2.2 Append the request date value, followed by a newline character. */
         stringToSign += xAmzDate + "\n";
 
         /* Step 2.3 Append the credential scope value, followed by a newline character. */
-        stringToSign += currentDate + "/" + regionName + "/" + serviceName + "/" + aws4Request + "\n";
+        stringToSign += currentDate + "/" + regionName + "/" + serviceName + "/" + AWS4_REQUEST + "\n";
 
-        /* Step 2.4 Append the hash of the canonical request that you created in Task 1: Create a Canonical Request for Signature Version 4. */
+        /* Step 2.4 Append the hash of the canonical request that you created in Task 1:
+        Create a Canonical Request for Signature Version 4. */
         stringToSign += generateHex(canonicalURL);
 
         if (debug) {
@@ -229,8 +265,14 @@ public class AWSV4Auth {
             /* Step 3.1 Derive your signing key */
             byte[] signatureKey = getSignatureKey(secretAccessKey, currentDate, regionName, serviceName);
 
+            if (debug) {
+                System.out.println("##calculateSignature:");
+                System.out.printf("signatureKey:%s\n", Hex.encodeHexString(signatureKey));
+                System.out.printf("stringToSign:%s\n\n", stringToSign);
+            }
+
             /* Step 3.2 Calculate the signature. */
-            byte[] signature = HmacSHA256(signatureKey, stringToSign);
+            byte[] signature = hmacSHA256(signatureKey, stringToSign);
 
             /* Step 3.2.1 Encode signature (byte[]) to Hex */
             String strHexSignature = bytesToHex(signature);
@@ -248,7 +290,11 @@ public class AWSV4Auth {
      * @return
      */
     public Map<String, String> getHeaders() {
-        awsHeaders.put("x-amz-date", xAmzDate);
+        //SignedHeaders: content-type,host,x-hyper-content-sha256,x-hyper-date
+        awsHeaders.put(HEAD_CONTENTTYPE.toLowerCase(), "application/json");
+        awsHeaders.put(HEAD_HOST.toLowerCase(), host);
+        awsHeaders.put(HEAD_X_HYPER_CONTENT_SHA256.toLowerCase(), generateHex(payload));
+        awsHeaders.put(HEAD_X_HYPER_DATE.toLowerCase(), xAmzDate);
 
         /* Execute Task 1: Create a Canonical Request for Signature Version 4. */
         String canonicalURL = prepareCanonicalRequest();
@@ -261,8 +307,11 @@ public class AWSV4Auth {
 
         if (signature != null) {
             Map<String, String> header = new HashMap<String, String>(0);
-            header.put("x-amz-date", xAmzDate);
-            header.put("Authorization", buildAuthorizationString(signature));
+            header.put(HEAD_CONTENTTYPE, "application/json");
+            header.put(HEAD_X_HYPER_DATE, xAmzDate);
+            header.put(HEAD_X_HYPER_CONTENT_SHA256, generateHex(payload));
+            header.put(HEAD_HOST, host);
+            header.put(HEAD_AUTHORIZATION, buildAuthorizationString(signature));
 
             if (debug) {
                 System.out.println("##Signature:\n" + signature);
@@ -288,9 +337,10 @@ public class AWSV4Auth {
      * @return
      */
     private String buildAuthorizationString(String strSignature) {
-        return HMACAlgorithm + " "
-                + "Credential=" + accessKeyID + "/" + getDate() + "/" + regionName + "/" + serviceName + "/" + aws4Request + ","
-                + "SignedHeaders=" + strSignedHeader + ","
+        //should has space after comma(for Hyper_)
+        return HMAC_ALGORITHM + " "
+                + "Credential=" + accessKeyID + "/" + getDate() + "/" + regionName + "/" + serviceName + "/" + AWS4_REQUEST + ", "
+                + "SignedHeaders=" + strSignedHeader + ", "
                 + "Signature=" + strSignature;
     }
 
@@ -323,7 +373,7 @@ public class AWSV4Auth {
      * @reference:
      * http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
      */
-    private byte[] HmacSHA256(byte[] key, String data) throws Exception {
+    private byte[] hmacSHA256(byte[] key, String data) throws Exception {
         String algorithm = "HmacSHA256";
         Mac mac = Mac.getInstance(algorithm);
         mac.init(new SecretKeySpec(key, algorithm));
@@ -343,15 +393,23 @@ public class AWSV4Auth {
      * http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
      */
     private byte[] getSignatureKey(String key, String date, String regionName, String serviceName) throws Exception {
-        byte[] kSecret = ("AWS4" + key).getBytes("UTF8");
-        byte[] kDate = HmacSHA256(kSecret, date);
-        byte[] kRegion = HmacSHA256(kDate, regionName);
-        byte[] kService = HmacSHA256(kRegion, serviceName);
-        byte[] kSigning = HmacSHA256(kService, aws4Request);
+        byte[] kSecret = (KEYPARTS_PREFIX + key).getBytes("UTF8");
+        byte[] kDate = hmacSHA256(kSecret, date);
+        byte[] kRegion = hmacSHA256(kDate, regionName);
+        byte[] kService = hmacSHA256(kRegion, serviceName);
+        byte[] kSigning = hmacSHA256(kService, AWS4_REQUEST);
+        if (debug) {
+            System.out.println("##getSingatureKey:");
+            System.out.printf(String.format(" [ key:%s ] - kSecret:%s\n", key, Hex.encodeHexString(kSecret)));
+            System.out.printf(String.format(" [ date:%s ] - kDate:%s\n", date, Hex.encodeHexString(kDate)));
+            System.out.printf(String.format(" [ regionName:%s ] - kRegion:%s\n", regionName, Hex.encodeHexString(kRegion)));
+            System.out.printf(String.format(" [ serviceName:%s ] - kService:%s\n", serviceName, Hex.encodeHexString(kService)));
+            System.out.printf(String.format(" [ AWS4_REQUEST:%s ] - kSigning:%s\n\n", AWS4_REQUEST, Hex.encodeHexString(kSigning)));
+        }
         return kSigning;
     }
 
-    final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    protected static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
 
     /**
      * Convert byte array to Hex
@@ -363,8 +421,8 @@ public class AWSV4Auth {
         char[] hexChars = new char[bytes.length * 2];
         for (int j = 0; j < bytes.length; j++) {
             int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
         }
         return new String(hexChars).toLowerCase();
     }
@@ -376,7 +434,7 @@ public class AWSV4Auth {
      */
     private String getTimeStamp() {
         DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));//server timezone
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); //server timezone
         return dateFormat.format(new Date());
     }
 
@@ -387,7 +445,7 @@ public class AWSV4Auth {
      */
     private String getDate() {
         DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));//server timezone
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC")); //server timezone
         return dateFormat.format(new Date());
     }
 }
