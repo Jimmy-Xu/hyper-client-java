@@ -29,7 +29,7 @@ import java.util.TreeMap;
  * @date 19th January, 2016
  * @Github: https://github.com/javaquery/Examples
  *
- * @modifier: xjimmyshcn
+ * @modifier: Jimmy Xu(xjimmyshcn@gmail.com)
  * @modifyDate: 16th July, 2016
  * @Github: https://github.com/Jimmy-Xu/hypercli-java
  */
@@ -111,7 +111,7 @@ public class AWSV4Auth {
         }
 
         public Builder payload(String payload) {
-            this.payload = payload;
+            this.payload = payload == null ? "" : payload;
             return this;
         }
 
