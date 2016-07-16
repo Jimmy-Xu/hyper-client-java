@@ -24,27 +24,27 @@ import java.util.TreeMap;
 /**
  * Example: Signing AWS Requests with Signature Version 4 in Java.
  *
- * @reference: http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
  * @author javaQuery
+ * @reference: http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
  * @date 19th January, 2016
  * @Github: https://github.com/javaquery/Examples
- *
+ * -----------------------------------------------------------------------------
  * @modifier: Jimmy Xu(xjimmyshcn@gmail.com)
  * @modifyDate: 16th July, 2016
  * @Github: https://github.com/Jimmy-Xu/hypercli-java
  */
 public class AWSV4Auth {
 
-    private static final String HMAC_ALGORITHM              = "HYPER-HMAC-SHA256";
-    private static final String AWS4_REQUEST                = "hyper_request";
-    private static final String KEYPARTS_PREFIX             = "HYPER";
+    private static final String HMAC_ALGORITHM = "HYPER-HMAC-SHA256";
+    private static final String AWS4_REQUEST = "hyper_request";
+    private static final String KEYPARTS_PREFIX = "HYPER";
 
-    private static final String HEAD_AUTHORIZATION          = "Authorization";
+    private static final String HEAD_AUTHORIZATION = "Authorization";
     /*SignedHeaders: content-type,host,x-hyper-content-sha256,x-hyper-date*/
-    private static final String HEAD_CONTENTTYPE            = "Content-Type";
-    private static final String HEAD_HOST                   = "Host";
+    private static final String HEAD_CONTENTTYPE = "Content-Type";
+    private static final String HEAD_HOST = "Host";
     private static final String HEAD_X_HYPER_CONTENT_SHA256 = "X-Hyper-Content-Sha256";
-    private static final String HEAD_X_HYPER_DATE           = "X-Hyper-Date";
+    private static final String HEAD_X_HYPER_DATE = "X-Hyper-Date";
 
     private AWSV4Auth() {
     }
@@ -159,10 +159,12 @@ public class AWSV4Auth {
         currentDate = getDate();
 
         //for debug
+        /*
         if (debug) {
             xAmzDate = "20160712T033826Z";
             currentDate = xAmzDate.substring(0, 8);
         }
+        */
     }
 
     /**
@@ -370,8 +372,7 @@ public class AWSV4Auth {
      * @param key
      * @return
      * @throws Exception
-     * @reference:
-     * http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
+     * @reference: http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
      */
     private byte[] hmacSHA256(byte[] key, String data) throws Exception {
         String algorithm = "HmacSHA256";
@@ -389,8 +390,7 @@ public class AWSV4Auth {
      * @param serviceName
      * @return
      * @throws Exception
-     * @reference
-     * http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
+     * @reference http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-java
      */
     private byte[] getSignatureKey(String key, String date, String regionName, String serviceName) throws Exception {
         byte[] kSecret = (KEYPARTS_PREFIX + key).getBytes("UTF8");

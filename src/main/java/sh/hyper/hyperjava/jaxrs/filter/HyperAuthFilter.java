@@ -54,8 +54,8 @@ public class HyperAuthFilter implements ClientRequestFilter {
         boolean prettyPrinter = false;
         boolean debugMode = true;
 
-        String accessKey = System.getProperty("HYPER_ACCESS_KEY");
-        String secretKey = System.getProperty("HYPER_SECRET_KEY");
+        String accessKey = System.getenv("HYPER_ACCESS_KEY");
+        String secretKey = System.getenv("HYPER_SECRET_KEY");
         TreeMap<String, String> awsHeaders = new TreeMap<String, String>();
 
         if (debugMode) {
@@ -120,7 +120,7 @@ public class HyperAuthFilter implements ClientRequestFilter {
                 curlCmd += String.format(" -d '%s'\\\n", postData);
             }
             curlCmd += String.format(" -X %s \\\n%s\n", method, uri.toString());
-            System.out.printf("##curl command line:%s", curlCmd);
+            System.out.printf("##curl command line:\n%s\n", curlCmd);
         }
 
         return result;
