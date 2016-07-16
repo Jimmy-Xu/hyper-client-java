@@ -29,7 +29,7 @@ $ mvn test -Dtest=Hyper*Test
 
 ## Package
 
-output: `./target/docker-java-3.0.0.jar`
+output: `./target/hypercli-java-3.0.0.jar`
 
 ```
 //compile + test + package
@@ -41,7 +41,7 @@ $ mvn package -DskipTests
 
 ## Install
 
-Installing `./target/docker-java-3.0.0.jar` to `~/.m2/repository/com/github/docker-java/docker-java/3.0.0/docker-java-3.0.0.jar`
+Installing `./target/hypercli-java-3.0.0.jar` to `~/.m2/repository/com/github/hypercli-java/hypercli-java/3.0.0/hypercli-java-3.0.0.jar`
 
 ```
 //compile + test + package + install
@@ -50,3 +50,7 @@ $ mvn install
 //compile + package + install (faster)
 $ mvn install -DskipTests
 ```
+
+# Usage
+
+see `src/test/java/sh.hyper.hyperjava.api.model/Hyper*Test.java`
