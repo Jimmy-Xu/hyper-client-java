@@ -3,6 +3,8 @@ package sh.hyper.hyperjava.jaxrs.filter;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sh.hyper.hyperjava.auth.AWSV4Auth;
@@ -51,6 +53,7 @@ public class HyperAuthFilter implements ClientRequestFilter {
         URI uri = requestContext.getUri();
         String method = requestContext.getMethod();
         String postData = null;
+        TreeMap<String, String> queryParametes = null;
         boolean prettyPrinter = false;
         boolean debugMode = true;
 
@@ -60,14 +63,20 @@ public class HyperAuthFilter implements ClientRequestFilter {
 
         if (debugMode) {
             //output header
-            LOGGER.debug(String.format("##generateHyperAuthHeader:header\nHost:%s\nPath:%s\nregionName:%s\ncanonicalURI:%s\n",
+            LOGGER.info(String.format("##generateHyperAuthHeader:header\nHost:%s\nPath:%s\nregionName:%s\ncanonicalURI:%s\n",
                     uri.getHost(),
                     uri.getPath(),
                     uri.getHost().split("\\.")[0],
                     uri.getPath().substring(1)
             ));
+
+            //output parameter
+            LOGGER.info(String.format("##generateHyperAuthHeader:\nparameter:%s\nuri:%s\n",
+                    uri.getQuery(), uri.toString()
+                    ));
         }
 
+        //convert postData
         if (requestContext.hasEntity()) {
             //convert object to jsonString
             StringWriter sw = new StringWriter();
@@ -83,6 +92,15 @@ public class HyperAuthFilter implements ClientRequestFilter {
             }
         }
 
+        //convert queryParametes
+        if (uri.getQuery() != null){
+            queryParametes = new TreeMap<String, String>();
+            List<NameValuePair> qparams = URLEncodedUtils.parse(uri, "utf8");
+            for (NameValuePair pair : qparams) {
+                queryParametes.put(pair.getName(), pair.getValue());
+            }
+        }
+
         //add Sign v4 Header for Hyper_
         AWSV4Auth.Builder builder = new AWSV4Auth.Builder(accessKey, secretKey)
                 .host(uri.getHost())
@@ -90,7 +108,7 @@ public class HyperAuthFilter implements ClientRequestFilter {
                 .serviceName("hyper")
                 .httpMethodName(method)                     //GET, PUT, POST, DELETE, etc...
                 .canonicalURI(uri.getPath().substring(1))   //end point (first char is not '/' for Hyper_)
-                .queryParametes(null)                       //query parameters if any
+                .queryParametes(queryParametes)             //query parameters if any
                 .awsHeaders(awsHeaders)                     //aws header parameters
                 .payload(postData);                         // payload if any
 

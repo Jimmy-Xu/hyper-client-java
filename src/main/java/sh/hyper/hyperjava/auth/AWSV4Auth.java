@@ -184,17 +184,28 @@ public class AWSV4Auth {
 
         /* Step 1.3 Add the canonical query string, followed by a newline character. */
         StringBuilder queryString = new StringBuilder("");
+        boolean isFirst = true;
         if (queryParametes != null && !queryParametes.isEmpty()) {
             for (Map.Entry<String, String> entrySet : queryParametes.entrySet()) {
                 String key = entrySet.getKey();
                 String value = entrySet.getValue();
-                queryString.append(key).append("=").append(URLEncoder.encode(value)).append("&");
+                if (isFirst){
+                    queryString.append(key).append("=").append(URLEncoder.encode(value));
+                    isFirst = false;
+                }
+                else{
+                    queryString.append("&").append(key).append("=").append(URLEncoder.encode(value));
+                }
             }
             queryString.append("\n");
         } else {
             queryString.append("\n");
         }
+
         canonicalURL.append(queryString);
+        if (debug) {
+            System.out.printf("##canonicalURL:%s\nqueryString:%s \n", canonicalURL, queryString);
+        }
 
         /* Step 1.4 Add the canonical headers, followed by a newline character. */
         StringBuilder signedHeaders = new StringBuilder("");
@@ -250,6 +261,7 @@ public class AWSV4Auth {
         stringToSign += generateHex(canonicalURL);
 
         if (debug) {
+            System.out.printf("##canonicalURL:[%s]\n", canonicalURL);
             System.out.println("##String to sign:\n" + stringToSign);
         }
 
